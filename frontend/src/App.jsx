@@ -246,8 +246,8 @@ function TimeSlider({ history, selectedIndex, onIndexChange, isLive, onLiveToggl
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-none p-4 border border-gray-100 dark:border-gray-700">
-      <div className="flex items-center justify-between gap-4">
-        {/* Left: Icon and title */}
+      {/* Header: Icon/title and Live button */}
+      <div className="flex items-center justify-between gap-4 mb-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-violet-100 dark:bg-violet-900/50 rounded-lg text-violet-600 dark:text-violet-400">
             <TimeTravelIcon />
@@ -262,42 +262,41 @@ function TimeSlider({ history, selectedIndex, onIndexChange, isLive, onLiveToggl
           </div>
         </div>
 
-        {/* Center: Slider */}
-        <div className="flex-1 px-4">
-          <input
-            type="range"
-            min={0}
-            max={readings.length - 1}
-            value={selectedIndex}
-            onChange={(e) => onIndexChange(parseInt(e.target.value))}
-            onMouseDown={() => { if (isLive) onLiveToggle() }}
-            onTouchStart={() => { if (isLive) onLiveToggle() }}
-            className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-            style={{
-              background: isLive
-                ? '#d1fae5'
-                : `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${(selectedIndex / (readings.length - 1)) * 100}%, #ddd6fe ${(selectedIndex / (readings.length - 1)) * 100}%, #ddd6fe 100%)`
-            }}
-          />
-          <div className="flex justify-between mt-1 text-xs text-gray-400">
-            <span>{oldestTime ? formatTime(oldestTime) : ''}</span>
-            <span className="text-gray-300 dark:text-gray-500">{readings.length} readings</span>
-            <span>{newestTime ? formatTime(newestTime) : ''}</span>
-          </div>
-        </div>
-
-        {/* Right: Live button */}
         <button
           onClick={onLiveToggle}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all shrink-0 ${
             isLive
               ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-none'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
         >
           <PlayIcon />
-          <span>Live</span>
+          <span className="hidden sm:inline">Live</span>
         </button>
+      </div>
+
+      {/* Slider - full width below header */}
+      <div>
+        <input
+          type="range"
+          min={0}
+          max={readings.length - 1}
+          value={selectedIndex}
+          onChange={(e) => onIndexChange(parseInt(e.target.value))}
+          onMouseDown={() => { if (isLive) onLiveToggle() }}
+          onTouchStart={() => { if (isLive) onLiveToggle() }}
+          className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+          style={{
+            background: isLive
+              ? '#d1fae5'
+              : `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${(selectedIndex / (readings.length - 1)) * 100}%, #ddd6fe ${(selectedIndex / (readings.length - 1)) * 100}%, #ddd6fe 100%)`
+          }}
+        />
+        <div className="flex justify-between mt-1 text-xs text-gray-400">
+          <span>{oldestTime ? formatTime(oldestTime) : ''}</span>
+          <span className="text-gray-300 dark:text-gray-500">{readings.length} readings</span>
+          <span>{newestTime ? formatTime(newestTime) : ''}</span>
+        </div>
       </div>
     </div>
   )
