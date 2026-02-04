@@ -1,10 +1,12 @@
 # Victron Monitor
 
-[![CI](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-blueviolet)](https://claude.ai)
 
-A simple, self-hosted energy monitoring dashboard for Victron systems using the VRM API.
+A simple energy monitoring dashboard for Victron systems using the VRM API.
+
+**Live Demo:** [victron-monitor.fly.dev](https://victron-monitor.fly.dev/)
 
 <p align="center">
   <img src="docs/screenshot-light.png" width="45%" alt="Light Mode" />
@@ -71,7 +73,7 @@ A simple, self-hosted energy monitoring dashboard for Victron systems using the 
 
 - **Backend**: Python, FastAPI, SQLAlchemy, SQLite
 - **Frontend**: React, Tailwind CSS
-- **Deployment**: Docker, Nginx
+- **Deployment**: Docker, Nginx, Fly.io
 
 ## Battery SOC Estimation
 
