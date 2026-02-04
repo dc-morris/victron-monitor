@@ -53,6 +53,7 @@ Diagnostic codes used:
 
 ## Workflow
 
+- Run all tests before any commit
 - Every commit should reference a GitHub Issue
 - Create an issue first if one doesn't exist
 - Reference in commit messages (e.g., "Fix battery display #12")
