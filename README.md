@@ -6,7 +6,10 @@
 
 A simple, self-hosted energy monitoring dashboard for Victron systems using the VRM API.
 
-![Dashboard Screenshot](docs/screenshot.png)
+<p align="center">
+  <img src="docs/screenshot-light.png" width="45%" alt="Light Mode" />
+  <img src="docs/screenshot-dark.png" width="45%" alt="Dark Mode" />
+</p>
 
 ## Features
 
@@ -17,6 +20,7 @@ A simple, self-hosted energy monitoring dashboard for Victron systems using the 
 - **Auto-refresh** - Dashboard updates every 30 seconds
 - **Data logging** - Historical data stored locally in SQLite
 - **Modern UI** - Clean, responsive design with circular gauges and color-coded status
+- **Dark mode** - Toggle between light and dark themes, respects system preference
 
 ## Requirements
 
