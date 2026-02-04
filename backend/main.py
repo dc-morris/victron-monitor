@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -93,7 +93,11 @@ app = FastAPI(title="Victron Monitor", lifespan=lifespan)
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://victron-monitor.fly.dev",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -134,8 +138,8 @@ async def get_current_data(db: Session = Depends(get_db)):
 
 
 @app.get("/api/history")
-async def get_history(hours: int = 24, db: Session = Depends(get_db)):
-    """Get historical readings."""
+async def get_history(hours: int = Query(24, ge=1, le=168), db: Session = Depends(get_db)):
+    """Get historical readings (max 168 hours / 1 week)."""
     since = datetime.utcnow() - timedelta(hours=hours)
     readings = db.query(EnergyReading).filter(
         EnergyReading.timestamp >= since
