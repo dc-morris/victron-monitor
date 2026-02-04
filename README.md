@@ -36,6 +36,8 @@ A simple, self-hosted energy monitoring dashboard for Victron systems using the 
    VRM_INSTALLATION_ID=your_site_id
    ```
 
+   > **Note:** The `.env` file is gitignored and will not be committed to version control. Never share your VRM token publicly.
+
    **To get these values:**
    - **VRM Token**: Go to [VRM Access Tokens](https://vrm.victronenergy.com/access-tokens) and create a new token
    - **Installation ID**: Found in your VRM URL: `vrm.victronenergy.com/installation/XXXXX/dashboard`
