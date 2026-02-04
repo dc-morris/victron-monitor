@@ -9,6 +9,7 @@ A simple, self-hosted energy monitoring dashboard for Victron systems using the 
 - **Battery monitoring** - Voltage, current, power, and estimated SOC (state of charge) from voltage
 - **Solar tracking** - Real-time power output and daily yield
 - **Environment sensors** - Temperature and humidity from connected sensors (e.g., Ruuvi)
+- **Time travel** - Scroll through 24 hours of historical data and watch the dashboard update
 - **Auto-refresh** - Dashboard updates every 30 seconds
 - **Data logging** - Historical data stored locally in SQLite
 - **Modern UI** - Clean, responsive design with circular gauges and color-coded status

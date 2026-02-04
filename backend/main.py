@@ -147,9 +147,15 @@ async def get_history(hours: int = 24, db: Session = Depends(get_db)):
             {
                 "timestamp": r.timestamp.isoformat(),
                 "battery_voltage": r.battery_voltage,
+                "battery_current": r.battery_current,
                 "battery_power": r.battery_power,
+                "battery_state": r.battery_state,
                 "solar_power": r.solar_power,
+                "solar_voltage": r.solar_voltage,
+                "solar_current": r.solar_current,
+                "solar_yield_today": r.solar_yield_today,
                 "temperature": r.temperature,
+                "humidity": r.humidity,
             }
             for r in readings
         ]

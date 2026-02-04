@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8000'
 
@@ -61,7 +61,7 @@ function CircularGauge({ value, max = 100, size = 140, strokeWidth = 12, color, 
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className="transition-all duration-500 ease-out"
+          className="transition-all duration-300 ease-out"
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
@@ -98,11 +98,24 @@ const RefreshIcon = ({ spinning }) => (
   </svg>
 )
 
-function BatteryCard({ battery }) {
-  const voltage = battery?.voltage ?? null
-  const current = battery?.current ?? 0
-  const power = battery?.power ?? 0
-  const state = battery?.state ?? 'unknown'
+const PlayIcon = () => (
+  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+)
+
+const TimeTravelIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h2M4 9l1.5 1.5M4 15l1.5-1.5" />
+  </svg>
+)
+
+function BatteryCard({ data }) {
+  const voltage = data?.battery_voltage ?? null
+  const current = data?.battery_current ?? 0
+  const power = data?.battery_power ?? 0
+  const state = data?.battery_state ?? 'unknown'
   const soc = voltageToSOC(voltage)
 
   const getSOCColor = (soc) => {
@@ -164,11 +177,11 @@ function BatteryCard({ battery }) {
   )
 }
 
-function SolarCard({ solar }) {
-  const power = solar?.power ?? 0
-  const voltage = solar?.voltage ?? 0
-  const current = solar?.current ?? 0
-  const yieldToday = solar?.yield_today ?? 0
+function SolarCard({ data }) {
+  const power = data?.solar_power ?? 0
+  const voltage = data?.solar_voltage ?? 0
+  const current = data?.solar_current ?? 0
+  const yieldToday = data?.solar_yield_today ?? 0
 
   return (
     <div className="bg-white rounded-2xl shadow-lg shadow-amber-100/50 p-6 border border-gray-100">
@@ -207,9 +220,9 @@ function SolarCard({ solar }) {
   )
 }
 
-function EnvironmentCard({ environment }) {
-  const temp = environment?.temperature ?? null
-  const humidity = environment?.humidity ?? null
+function EnvironmentCard({ data }) {
+  const temp = data?.temperature ?? null
+  const humidity = data?.humidity ?? null
 
   return (
     <div className="bg-white rounded-2xl shadow-lg shadow-cyan-100/50 p-6 border border-gray-100">
@@ -238,22 +251,127 @@ function EnvironmentCard({ environment }) {
   )
 }
 
+function TimeSlider({ history, selectedIndex, onIndexChange, isLive, onLiveToggle }) {
+  const readings = history?.readings ?? []
+
+  if (readings.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
+        <p className="text-gray-400 text-center text-sm">No historical data yet. Data is collected every minute.</p>
+      </div>
+    )
+  }
+
+  const selectedReading = readings[selectedIndex]
+  const selectedTime = selectedReading ? new Date(selectedReading.timestamp) : null
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const formatDateTime = (date) => {
+    const today = new Date()
+    const isToday = date.toDateString() === today.toDateString()
+    if (isToday) {
+      return `Today ${formatTime(date)}`
+    }
+    return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + formatTime(date)
+  }
+
+  const oldestTime = readings.length > 0 ? new Date(readings[0].timestamp) : null
+  const newestTime = readings.length > 0 ? new Date(readings[readings.length - 1].timestamp) : null
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
+      <div className="flex items-center justify-between gap-4">
+        {/* Left: Icon and title */}
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-violet-100 rounded-lg text-violet-600">
+            <TimeTravelIcon />
+          </div>
+          <div>
+            <div className={`text-xl font-bold ${isLive ? 'text-emerald-500' : 'text-violet-500'}`}>
+              {isLive ? 'Live' : selectedTime ? formatTime(selectedTime) : '--:--'}
+            </div>
+            <div className="text-xs text-gray-400">
+              {isLive ? 'Real-time' : selectedTime ? formatDateTime(selectedTime) : ''}
+            </div>
+          </div>
+        </div>
+
+        {/* Center: Slider */}
+        <div className="flex-1 px-4">
+          <input
+            type="range"
+            min={0}
+            max={readings.length - 1}
+            value={selectedIndex}
+            onChange={(e) => onIndexChange(parseInt(e.target.value))}
+            onMouseDown={() => { if (isLive) onLiveToggle() }}
+            onTouchStart={() => { if (isLive) onLiveToggle() }}
+            className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+            style={{
+              background: isLive
+                ? '#d1fae5'
+                : `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${(selectedIndex / (readings.length - 1)) * 100}%, #ddd6fe ${(selectedIndex / (readings.length - 1)) * 100}%, #ddd6fe 100%)`
+            }}
+          />
+          <div className="flex justify-between mt-1 text-xs text-gray-400">
+            <span>{oldestTime ? formatTime(oldestTime) : ''}</span>
+            <span className="text-gray-300">{readings.length} readings</span>
+            <span>{newestTime ? formatTime(newestTime) : ''}</span>
+          </div>
+        </div>
+
+        {/* Right: Live button */}
+        <button
+          onClick={onLiveToggle}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
+            isLive
+              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <PlayIcon />
+          <span>Live</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [current, setCurrent] = useState(null)
+  const [history, setHistory] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [error, setError] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [isLive, setIsLive] = useState(true)
+  const [selectedIndex, setSelectedIndex] = useState(0)
 
   const fetchData = async () => {
     setRefreshing(true)
     try {
-      const response = await fetch(`${API_BASE}/api/current`)
-      if (response.ok) {
-        const data = await response.json()
+      const [currentRes, historyRes] = await Promise.all([
+        fetch(`${API_BASE}/api/current`),
+        fetch(`${API_BASE}/api/history?hours=24`)
+      ])
+
+      if (currentRes.ok) {
+        const data = await currentRes.json()
         if (!data.error) {
           setCurrent(data)
           setLastUpdate(new Date())
           setError(null)
+        }
+      }
+
+      if (historyRes.ok) {
+        const data = await historyRes.json()
+        setHistory(data)
+        // If live mode, keep slider at the end
+        if (isLive && data.readings?.length > 0) {
+          setSelectedIndex(data.readings.length - 1)
         }
       }
     } catch (e) {
@@ -269,6 +387,44 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
+  // When new data arrives and we're in live mode, update selected index
+  useEffect(() => {
+    if (isLive && history?.readings?.length > 0) {
+      setSelectedIndex(history.readings.length - 1)
+    }
+  }, [history, isLive])
+
+  // Get the display data based on mode
+  const displayData = useMemo(() => {
+    if (isLive || !history?.readings?.length) {
+      // Live mode - use current data
+      return current ? {
+        battery_voltage: current.battery?.voltage,
+        battery_current: current.battery?.current,
+        battery_power: current.battery?.power,
+        battery_state: current.battery?.state,
+        solar_power: current.solar?.power,
+        solar_voltage: current.solar?.voltage,
+        solar_current: current.solar?.current,
+        solar_yield_today: current.solar?.yield_today,
+        temperature: current.environment?.temperature,
+        humidity: current.environment?.humidity,
+      } : null
+    } else {
+      // Historical mode - use selected reading
+      return history.readings[selectedIndex]
+    }
+  }, [isLive, current, history, selectedIndex])
+
+  const handleLiveToggle = () => {
+    const newIsLive = !isLive
+    setIsLive(newIsLive)
+    if (newIsLive && history?.readings?.length > 0) {
+      // Switching to live - jump to end
+      setSelectedIndex(history.readings.length - 1)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
@@ -279,7 +435,12 @@ function App() {
             <p className="text-gray-500 mt-1">Energy Dashboard</p>
           </div>
           <div className="flex items-center gap-4">
-            {lastUpdate && (
+            {!isLive && (
+              <span className="px-3 py-1 bg-violet-100 text-violet-600 rounded-full text-sm font-medium">
+                Viewing History
+              </span>
+            )}
+            {lastUpdate && isLive && (
               <span className="text-sm text-gray-400">
                 Updated {lastUpdate.toLocaleTimeString()}
               </span>
@@ -302,11 +463,20 @@ function App() {
         )}
 
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <BatteryCard battery={current?.battery} />
-          <SolarCard solar={current?.solar} />
-          <EnvironmentCard environment={current?.environment} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+          <BatteryCard data={displayData} />
+          <SolarCard data={displayData} />
+          <EnvironmentCard data={displayData} />
         </div>
+
+        {/* Time Slider */}
+        <TimeSlider
+          history={history}
+          selectedIndex={selectedIndex}
+          onIndexChange={setSelectedIndex}
+          isLive={isLive}
+          onLiveToggle={handleLiveToggle}
+        />
 
         {/* Footer */}
         <div className="mt-8 text-center text-gray-400 text-sm space-y-1">
