@@ -2,6 +2,8 @@
 
 A simple, self-hosted energy monitoring dashboard for Victron systems using the VRM API.
 
+![Dashboard Screenshot](docs/screenshot.png)
+
 ## Features
 
 - **Battery monitoring** - Voltage, current, power, and estimated SOC (state of charge) from voltage
