@@ -4,7 +4,7 @@ import { voltageToSOC, getStateLabel, getSOCColor, formatTime } from './utils'
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000')
 
 // Circular Gauge Component
-function CircularGauge({ value, max = 100, size = 140, strokeWidth = 12, color, bgColor = '#e5e7eb', darkBgColor = '#374151' }) {
+function CircularGauge({ value, max = 100, size = 140, strokeWidth = 12, color, bgColor = '#e5e7eb' }) {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const percent = value !== null ? Math.min(value / max, 1) : 0
