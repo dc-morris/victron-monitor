@@ -309,8 +309,9 @@ function App() {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-gray-400 text-sm">
-          Data refreshes automatically every 30 seconds
+        <div className="mt-8 text-center text-gray-400 text-sm space-y-1">
+          <p>Data refreshes automatically every 30 seconds</p>
+          <p>Built with <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" className="text-violet-500 hover:text-violet-600">Claude</a></p>
         </div>
       </div>
     </main>
