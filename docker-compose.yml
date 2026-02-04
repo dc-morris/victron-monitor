@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - VRM_TOKEN=${VRM_TOKEN}
+      - VRM_INSTALLATION_ID=${VRM_INSTALLATION_ID}
+      - DATABASE_URL=sqlite:///./data/campervan.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
