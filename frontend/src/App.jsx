@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { voltageToSOC, getStateLabel, getSOCColor, formatTime } from './utils'
 
-const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000')
 
 // Circular Gauge Component
 function CircularGauge({ value, max = 100, size = 140, strokeWidth = 12, color, bgColor = '#e5e7eb', darkBgColor = '#374151' }) {
