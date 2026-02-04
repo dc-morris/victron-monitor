@@ -1,4 +1,3 @@
-import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -48,7 +47,6 @@ async def fetch_and_store_data():
                 temperature=parsed["temperature"],
                 humidity=parsed["humidity"],
                 battery_state=parsed["battery_state"],
-                raw_data=json.dumps(diagnostics)
             )
             db.add(reading)
             db.commit()
@@ -167,24 +165,30 @@ async def get_history(hours: int = Query(24, ge=1, le=168), db: Session = Depend
 
 @app.get("/api/stats")
 async def get_stats(db: Session = Depends(get_db)):
-    """Get summary statistics for today."""
+    """Get summary statistics for today using SQL aggregation."""
+    from sqlalchemy import func
+
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    readings = db.query(EnergyReading).filter(
+
+    # Use SQL aggregation instead of loading all records into memory
+    stats = db.query(
+        func.max(EnergyReading.solar_power).label("solar_peak"),
+        func.avg(EnergyReading.solar_power).label("solar_avg"),
+        func.avg(EnergyReading.consumption_power).label("consumption_avg"),
+        func.count(EnergyReading.id).label("readings_count"),
+    ).filter(
         EnergyReading.timestamp >= today_start
-    ).all()
+    ).first()
 
-    if not readings:
+    if not stats or stats.readings_count == 0:
         return {"error": "No data for today"}
-
-    solar_powers = [r.solar_power for r in readings if r.solar_power is not None]
-    consumption_powers = [r.consumption_power for r in readings if r.consumption_power is not None]
 
     return {
         "today": {
-            "solar_peak": max(solar_powers) if solar_powers else None,
-            "solar_avg": sum(solar_powers) / len(solar_powers) if solar_powers else None,
-            "consumption_avg": sum(consumption_powers) / len(consumption_powers) if consumption_powers else None,
-            "readings_count": len(readings),
+            "solar_peak": stats.solar_peak,
+            "solar_avg": round(stats.solar_avg, 2) if stats.solar_avg else None,
+            "consumption_avg": round(stats.consumption_avg, 2) if stats.consumption_avg else None,
+            "readings_count": stats.readings_count,
         }
     }
 

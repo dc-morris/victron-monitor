@@ -34,6 +34,3 @@ class EnergyReading(Base):
 
     # Battery state
     battery_state = Column(String, nullable=True)  # charging/idle/discharging
-
-    # Raw JSON for any additional data
-    raw_data = Column(String, nullable=True)
