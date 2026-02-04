@@ -89,7 +89,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown()
 
 
-app = FastAPI(title="Campervan Monitor", lifespan=lifespan)
+app = FastAPI(title="Victron Monitor", lifespan=lifespan)
 
 # CORS for frontend
 app.add_middleware(

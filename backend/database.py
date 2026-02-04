@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/campervan.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/victron.db")
 
 # Ensure data directory exists
 os.makedirs("data", exist_ok=True)

@@ -6,7 +6,7 @@ services:
     environment:
       - VRM_TOKEN=${VRM_TOKEN}
       - VRM_INSTALLATION_ID=${VRM_INSTALLATION_ID}
-      - DATABASE_URL=sqlite:///./data/campervan.db
+      - DATABASE_URL=sqlite:///./data/victron.db
     volumes:
       - ./data:/app/data
     restart: unless-stopped
