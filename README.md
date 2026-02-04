@@ -1,10 +1,12 @@
 # Victron Monitor
 
-[![CI](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-blueviolet)](https://claude.ai)
 
-A simple, self-hosted energy monitoring dashboard for Victron systems using the VRM API.
+A simple energy monitoring dashboard for Victron systems using the VRM API.
+
+**Live Demo:** [victron-monitor.fly.dev](https://victron-monitor.fly.dev/)
 
 <p align="center">
   <img src="docs/screenshot-light.png" width="45%" alt="Light Mode" />
@@ -24,11 +26,11 @@ A simple, self-hosted energy monitoring dashboard for Victron systems using the 
 
 ## Requirements
 
-- Docker and Docker Compose
+- [Fly.io](https://fly.io) account (free tier works)
 - Victron VRM account with API access
 - A Victron device connected to VRM (e.g., GlobalLink 520, Cerbo GX)
 
-## Setup
+## Deployment
 
 1. Clone the repository:
    ```bash
@@ -36,42 +38,45 @@ A simple, self-hosted energy monitoring dashboard for Victron systems using the 
    cd victron-monitor
    ```
 
-2. Create a `.env` file with your VRM credentials:
+2. Install the Fly CLI and authenticate:
    ```bash
-   cp .env.example .env
+   curl -L https://fly.io/install.sh | sh
+   fly auth login
    ```
 
-3. Edit `.env` and add your details:
-   ```
-   VRM_TOKEN=your_vrm_access_token
-   VRM_INSTALLATION_ID=your_site_id
+3. Create the apps (update app names in `fly.toml` files if needed):
+   ```bash
+   cd backend && fly launch --no-deploy
+   cd ../frontend && fly launch --no-deploy
    ```
 
-   > **Note:** The `.env` file is gitignored and will not be committed to version control. Never share your VRM token publicly.
+4. Create a persistent volume for the database:
+   ```bash
+   cd backend && fly volumes create victron_data --region lhr --size 1
+   ```
+
+5. Set your VRM credentials:
+   ```bash
+   cd backend
+   fly secrets set VRM_TOKEN=your_vrm_access_token
+   fly secrets set VRM_INSTALLATION_ID=your_site_id
+   ```
 
    **To get these values:**
    - **VRM Token**: Go to [VRM Access Tokens](https://vrm.victronenergy.com/access-tokens) and create a new token
    - **Installation ID**: Found in your VRM URL: `vrm.victronenergy.com/installation/XXXXX/dashboard`
 
-4. Start the application:
+6. Deploy:
    ```bash
-   docker compose up -d
+   cd backend && fly deploy
+   cd ../frontend && fly deploy
    ```
-
-5. Open http://localhost:3000 in your browser
-
-## Configuration
-
-| Variable | Description |
-|----------|-------------|
-| `VRM_TOKEN` | Your VRM API access token |
-| `VRM_INSTALLATION_ID` | Your VRM site/installation ID |
 
 ## Tech Stack
 
 - **Backend**: Python, FastAPI, SQLAlchemy, SQLite
 - **Frontend**: React, Tailwind CSS
-- **Deployment**: Docker, Nginx
+- **Deployment**: Fly.io
 
 ## Battery SOC Estimation
 

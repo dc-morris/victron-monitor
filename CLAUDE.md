@@ -4,7 +4,6 @@
 
 - `backend/` - Python FastAPI backend
 - `frontend/` - React + Vite + Tailwind frontend
-- `docker-compose.yml` - Local development and deployment
 
 ## Commands
 
@@ -23,11 +22,13 @@ npm run test:run   # Run tests
 npm run build      # Production build
 ```
 
-### Docker
+### Fly.io Deployment
 ```bash
-docker compose up -d          # Start
-docker compose down           # Stop
-docker compose build --no-cache  # Rebuild
+cd backend && fly deploy      # Deploy backend
+cd frontend && fly deploy     # Deploy frontend
+fly status -a victron-monitor-api  # Check backend status
+fly status -a victron-monitor      # Check frontend status
+fly logs -a victron-monitor-api    # View backend logs
 ```
 
 ## VRM API
@@ -58,9 +59,15 @@ Diagnostic codes used:
 - Create an issue first if one doesn't exist
 - Reference in commit messages (e.g., "Fix battery display #12")
 
+## Deployment
+
+- **Fly.io**: Auto-deploys on push to main via CI/CD
+  - Frontend: https://victron-monitor.fly.dev/
+  - Backend API: https://victron-monitor-api.fly.dev/
+  - Backend uses persistent volume for SQLite database
+
 ## Notes
 
 - Battery SOC is estimated from voltage using a lookup table for 12V lead-acid/AGM
 - Data is polled from VRM every minute and stored in SQLite
 - Frontend refreshes every 30 seconds
-- Deployed on macmini.lan via Docker (port 3080)
