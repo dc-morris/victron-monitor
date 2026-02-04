@@ -1,5 +1,9 @@
 # Victron Monitor
 
+[![CI](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/dc-morris/victron-monitor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-blueviolet)](https://claude.ai)
+
 A simple, self-hosted energy monitoring dashboard for Victron systems using the VRM API.
 
 ![Dashboard Screenshot](docs/screenshot.png)
