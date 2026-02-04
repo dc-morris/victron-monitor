@@ -4,7 +4,6 @@
 
 - `backend/` - Python FastAPI backend
 - `frontend/` - React + Vite + Tailwind frontend
-- `docker-compose.yml` - Local development and deployment
 
 ## Commands
 
@@ -21,13 +20,6 @@ cd frontend
 npm run dev        # Dev server (port 5173)
 npm run test:run   # Run tests
 npm run build      # Production build
-```
-
-### Docker
-```bash
-docker compose up -d          # Start
-docker compose down           # Stop
-docker compose build --no-cache  # Rebuild
 ```
 
 ### Fly.io Deployment
@@ -69,11 +61,10 @@ Diagnostic codes used:
 
 ## Deployment
 
-- **Fly.io (production)**: Auto-deploys on push to main via CI/CD
+- **Fly.io**: Auto-deploys on push to main via CI/CD
   - Frontend: https://victron-monitor.fly.dev/
   - Backend API: https://victron-monitor-api.fly.dev/
   - Backend uses persistent volume for SQLite database
-- **Local (macmini.lan)**: Docker Compose on port 3080
 
 ## Notes
 
