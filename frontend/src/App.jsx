@@ -4,7 +4,7 @@ import { voltageToSOC, getStateLabel, getSOCColor, formatTime } from './utils'
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8000'
 
 // Circular Gauge Component
-function CircularGauge({ value, max = 100, size = 140, strokeWidth = 12, color, bgColor = '#e5e7eb' }) {
+function CircularGauge({ value, max = 100, size = 140, strokeWidth = 12, color, bgColor = '#e5e7eb', darkBgColor = '#374151' }) {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const percent = value !== null ? Math.min(value / max, 1) : 0
@@ -35,7 +35,7 @@ function CircularGauge({ value, max = 100, size = 140, strokeWidth = 12, color, 
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-3xl font-bold text-gray-800">
+        <span className="text-3xl font-bold text-gray-800 dark:text-gray-100">
           {value !== null ? `${value}%` : '--'}
         </span>
       </div>
@@ -81,6 +81,18 @@ const TimeTravelIcon = () => (
   </svg>
 )
 
+const MoonIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+  </svg>
+)
+
+const LightModeIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+)
+
 function BatteryCard({ data }) {
   const voltage = data?.battery_voltage ?? null
   const current = data?.battery_current ?? 0
@@ -89,19 +101,19 @@ function BatteryCard({ data }) {
   const soc = voltageToSOC(voltage)
 
   const getStateColor = (state) => {
-    if (state === 'charging' || state === '1' || state === 1) return 'text-emerald-500 bg-emerald-50'
-    if (state === 'discharging' || state === '2' || state === 2) return 'text-rose-500 bg-rose-50'
-    return 'text-gray-500 bg-gray-100'
+    if (state === 'charging' || state === '1' || state === 1) return 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30'
+    if (state === 'discharging' || state === '2' || state === 2) return 'text-rose-500 bg-rose-50 dark:bg-rose-900/30'
+    return 'text-gray-500 bg-gray-100 dark:bg-gray-700'
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg shadow-emerald-100/50 p-6 border border-gray-100">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-emerald-100/50 dark:shadow-none p-6 border border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+          <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg text-emerald-600 dark:text-emerald-400">
             <BatteryIcon />
           </div>
-          <h3 className="font-semibold text-gray-700">Battery</h3>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">Battery</h3>
         </div>
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStateColor(state)}`}>
           {getStateLabel(state)}
@@ -112,18 +124,18 @@ function BatteryCard({ data }) {
         <CircularGauge value={soc} color={getSOCColor(soc)} />
       </div>
 
-      <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+      <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
         <div className="text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Voltage</p>
-          <p className="text-lg font-semibold text-gray-700">{voltage?.toFixed(2) ?? '--'}V</p>
+          <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{voltage?.toFixed(2) ?? '--'}V</p>
         </div>
         <div className="text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Current</p>
-          <p className="text-lg font-semibold text-gray-700">{current?.toFixed(1) ?? '--'}A</p>
+          <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{current?.toFixed(1) ?? '--'}A</p>
         </div>
         <div className="text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Power</p>
-          <p className={`text-lg font-semibold ${power > 0 ? 'text-emerald-500' : power < 0 ? 'text-rose-500' : 'text-gray-700'}`}>
+          <p className={`text-lg font-semibold ${power > 0 ? 'text-emerald-500' : power < 0 ? 'text-rose-500' : 'text-gray-700 dark:text-gray-200'}`}>
             {power?.toFixed(0) ?? '--'}W
           </p>
         </div>
@@ -139,13 +151,13 @@ function SolarCard({ data }) {
   const yieldToday = data?.solar_yield_today ?? 0
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg shadow-amber-100/50 p-6 border border-gray-100">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-amber-100/50 dark:shadow-none p-6 border border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+          <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-lg text-amber-600 dark:text-amber-400">
             <SunIcon />
           </div>
-          <h3 className="font-semibold text-gray-700">Solar</h3>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">Solar</h3>
         </div>
       </div>
 
@@ -154,21 +166,21 @@ function SolarCard({ data }) {
         <div className="text-gray-400 text-sm mt-1">watts</div>
       </div>
 
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 mb-4">
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 rounded-xl p-4 mb-4">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-500">Today's Yield</span>
-          <span className="text-xl font-bold text-amber-600">{yieldToday?.toFixed(2) ?? '--'} kWh</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Today's Yield</span>
+          <span className="text-xl font-bold text-amber-600 dark:text-amber-400">{yieldToday?.toFixed(2) ?? '--'} kWh</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
         <div className="text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Voltage</p>
-          <p className="text-lg font-semibold text-gray-700">{voltage?.toFixed(1) ?? '--'}V</p>
+          <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{voltage?.toFixed(1) ?? '--'}V</p>
         </div>
         <div className="text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Current</p>
-          <p className="text-lg font-semibold text-gray-700">{current?.toFixed(1) ?? '--'}A</p>
+          <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{current?.toFixed(1) ?? '--'}A</p>
         </div>
       </div>
     </div>
@@ -180,13 +192,13 @@ function EnvironmentCard({ data }) {
   const humidity = data?.humidity ?? null
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg shadow-cyan-100/50 p-6 border border-gray-100">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-cyan-100/50 dark:shadow-none p-6 border border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-cyan-100 rounded-lg text-cyan-600">
+          <div className="p-2 bg-cyan-100 dark:bg-cyan-900/50 rounded-lg text-cyan-600 dark:text-cyan-400">
             <ThermometerIcon />
           </div>
-          <h3 className="font-semibold text-gray-700">Environment</h3>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">Environment</h3>
         </div>
       </div>
 
@@ -211,7 +223,7 @@ function TimeSlider({ history, selectedIndex, onIndexChange, isLive, onLiveToggl
 
   if (readings.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-none p-4 border border-gray-100 dark:border-gray-700">
         <p className="text-gray-400 text-center text-sm">No historical data yet. Data is collected every minute.</p>
       </div>
     )
@@ -233,11 +245,11 @@ function TimeSlider({ history, selectedIndex, onIndexChange, isLive, onLiveToggl
   const newestTime = readings.length > 0 ? new Date(readings[readings.length - 1].timestamp) : null
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-none p-4 border border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between gap-4">
         {/* Left: Icon and title */}
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-violet-100 rounded-lg text-violet-600">
+          <div className="p-2 bg-violet-100 dark:bg-violet-900/50 rounded-lg text-violet-600 dark:text-violet-400">
             <TimeTravelIcon />
           </div>
           <div>
@@ -269,7 +281,7 @@ function TimeSlider({ history, selectedIndex, onIndexChange, isLive, onLiveToggl
           />
           <div className="flex justify-between mt-1 text-xs text-gray-400">
             <span>{oldestTime ? formatTime(oldestTime) : ''}</span>
-            <span className="text-gray-300">{readings.length} readings</span>
+            <span className="text-gray-300 dark:text-gray-500">{readings.length} readings</span>
             <span>{newestTime ? formatTime(newestTime) : ''}</span>
           </div>
         </div>
@@ -279,8 +291,8 @@ function TimeSlider({ history, selectedIndex, onIndexChange, isLive, onLiveToggl
           onClick={onLiveToggle}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
             isLive
-              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-none'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
         >
           <PlayIcon />
@@ -299,6 +311,23 @@ function App() {
   const [refreshing, setRefreshing] = useState(false)
   const [isLive, setIsLive] = useState(true)
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('darkMode')
+      if (saved !== null) return JSON.parse(saved)
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
+    }
+    return false
+  })
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [darkMode])
 
   const fetchData = async () => {
     setRefreshing(true)
@@ -377,17 +406,17 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-8">
+    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8 transition-colors">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Victron Monitor</h1>
-            <p className="text-gray-500 mt-1">Energy Dashboard</p>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Victron Monitor</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Energy Dashboard</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {!isLive && (
-              <span className="px-3 py-1 bg-violet-100 text-violet-600 rounded-full text-sm font-medium">
+              <span className="px-3 py-1 bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400 rounded-full text-sm font-medium">
                 Viewing History
               </span>
             )}
@@ -397,9 +426,16 @@ function App() {
               </span>
             )}
             <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl shadow-sm hover:shadow-md dark:shadow-none transition-all border border-gray-200 dark:border-gray-700"
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {darkMode ? <LightModeIcon /> : <MoonIcon />}
+            </button>
+            <button
               onClick={fetchData}
               disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-gray-600 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl shadow-sm hover:shadow-md dark:shadow-none transition-all border border-gray-200 dark:border-gray-700 disabled:opacity-50"
             >
               <RefreshIcon spinning={refreshing} />
               <span className="hidden sm:inline">Refresh</span>
@@ -408,7 +444,7 @@ function App() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400">
             {error}
           </div>
         )}
@@ -430,9 +466,9 @@ function App() {
         />
 
         {/* Footer */}
-        <div className="mt-8 text-center text-gray-400 text-sm space-y-1">
+        <div className="mt-8 text-center text-gray-400 dark:text-gray-500 text-sm space-y-1">
           <p>Data refreshes automatically every 30 seconds</p>
-          <p>Built with <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" className="text-violet-500 hover:text-violet-600">Claude</a></p>
+          <p>Built with <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" className="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Claude</a></p>
         </div>
       </div>
     </main>
