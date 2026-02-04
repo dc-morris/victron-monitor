@@ -275,8 +275,8 @@ function App() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Campervan Monitor</h1>
-            <p className="text-gray-500 mt-1">VW California Energy Dashboard</p>
+            <h1 className="text-3xl font-bold text-gray-800">Victron Monitor</h1>
+            <p className="text-gray-500 mt-1">Energy Dashboard</p>
           </div>
           <div className="flex items-center gap-4">
             {lastUpdate && (
