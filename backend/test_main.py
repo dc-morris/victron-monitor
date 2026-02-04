@@ -1,14 +1,13 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-import json
-import os
 
 # Set up test database before importing app
 os.environ["DATABASE_URL"] = "sqlite:///./test_victron.db"
 
+from database import engine
 from main import app
-from database import init_db, engine
 from models import Base
 from vrm_client import VRMClient
 

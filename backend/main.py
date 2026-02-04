@@ -1,16 +1,15 @@
-import os
 import json
 import logging
-from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
 
-from database import init_db, get_db
+from database import get_db, init_db
 from models import EnergyReading
 from vrm_client import VRMClient
 
