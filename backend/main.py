@@ -32,49 +32,61 @@ def calculate_time_remaining(
     solar_power: Optional[float],
 ) -> dict:
     """
-    Calculate estimated battery time remaining.
+    Calculate estimated battery time remaining/to full.
 
     Returns dict with:
-    - hours_to_empty: time until 0% SOC
-    - hours_to_min: time until minimum safe SOC
-    - net_consumption: actual drain rate (consumption - solar)
+    - hours_to_empty: time until 0% SOC (when discharging)
+    - hours_to_min: time until minimum safe SOC (when discharging)
+    - hours_to_full: time until 100% SOC (when charging)
+    - net_power: net power flow (positive = discharging, negative = charging)
+    - is_discharging: True if net consumption > 0
+    - is_charging: True if net consumption < 0
     """
     result = {
         "hours_to_empty": None,
         "hours_to_min": None,
-        "net_consumption": None,
+        "hours_to_full": None,
+        "net_power": None,
         "is_discharging": False,
+        "is_charging": False,
     }
 
     if soc is None:
         return result
 
-    # Calculate net power draw (positive = discharging)
+    # Calculate net power flow (positive = discharging, negative = charging)
     consumption = consumption_power or 0
     solar = solar_power or 0
     net = consumption - solar
 
-    result["net_consumption"] = round(net, 1)
-
-    # Only calculate if actually discharging
-    if net <= 0:
-        return result
-
-    result["is_discharging"] = True
+    result["net_power"] = round(net, 1)
 
     # Battery capacity in Wh
     capacity_wh = BATTERY_CAPACITY_AH * BATTERY_VOLTAGE_NOMINAL
 
-    # Energy remaining to empty
-    energy_to_empty = capacity_wh * (soc / 100)
-    result["hours_to_empty"] = round(energy_to_empty / net, 1)
+    if net > 0:
+        # Discharging
+        result["is_discharging"] = True
 
-    # Energy remaining to minimum SOC
-    if soc > BATTERY_MIN_SOC:
-        energy_to_min = capacity_wh * ((soc - BATTERY_MIN_SOC) / 100)
-        result["hours_to_min"] = round(energy_to_min / net, 1)
-    else:
-        result["hours_to_min"] = 0
+        # Energy remaining to empty
+        energy_to_empty = capacity_wh * (soc / 100)
+        result["hours_to_empty"] = round(energy_to_empty / net, 1)
+
+        # Energy remaining to minimum SOC
+        if soc > BATTERY_MIN_SOC:
+            energy_to_min = capacity_wh * ((soc - BATTERY_MIN_SOC) / 100)
+            result["hours_to_min"] = round(energy_to_min / net, 1)
+        else:
+            result["hours_to_min"] = 0
+
+    elif net < 0 and soc < 100:
+        # Charging (net is negative, so use absolute value)
+        result["is_charging"] = True
+        charge_power = abs(net)
+
+        # Energy needed to reach 100%
+        energy_to_full = capacity_wh * ((100 - soc) / 100)
+        result["hours_to_full"] = round(energy_to_full / charge_power, 1)
 
     return result
 

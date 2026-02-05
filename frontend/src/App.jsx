@@ -139,20 +139,46 @@ function BatteryCard({ data, timeRemaining }) {
         <CircularGauge value={soc} color={getSOCColor(soc)} />
       </div>
 
-      {/* Time remaining - only show when discharging */}
-      {timeRemaining?.is_discharging && (
-        <div className="bg-gradient-to-r from-rose-50 to-orange-50 dark:from-rose-900/30 dark:to-orange-900/30 rounded-xl p-3 mb-4">
-          <div className="flex justify-between items-center">
-            <div className="text-center flex-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">To 50%</p>
-              <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatHours(timeRemaining.hours_to_min)}</p>
+      {/* Time remaining/charging info */}
+      {timeRemaining && (
+        <div className={`rounded-xl p-3 mb-4 ${
+          timeRemaining.is_discharging
+            ? 'bg-gradient-to-r from-rose-50 to-orange-50 dark:from-rose-900/30 dark:to-orange-900/30'
+            : timeRemaining.is_charging
+            ? 'bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30'
+            : 'bg-gray-50 dark:bg-gray-700/50'
+        }`}>
+          {timeRemaining.is_discharging ? (
+            <div className="flex justify-between items-center">
+              <div className="text-center flex-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">To 50%</p>
+                <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatHours(timeRemaining.hours_to_min)}</p>
+              </div>
+              <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
+              <div className="text-center flex-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">To Empty</p>
+                <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatHours(timeRemaining.hours_to_empty)}</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
-            <div className="text-center flex-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">To Empty</p>
-              <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatHours(timeRemaining.hours_to_empty)}</p>
+          ) : timeRemaining.is_charging ? (
+            <div className="flex justify-between items-center">
+              <div className="text-center flex-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Charging at</p>
+                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{Math.abs(timeRemaining.net_power)}W</p>
+              </div>
+              <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
+              <div className="text-center flex-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">To Full</p>
+                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatHours(timeRemaining.hours_to_full)}</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {soc >= 100 ? 'Fully charged' : 'Idle'}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
