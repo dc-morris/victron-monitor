@@ -134,4 +134,29 @@ class VRMClient:
                 except (ValueError, TypeError):
                     pass
 
+        # If no SOC from battery monitor, estimate from voltage (12V lead-acid)
+        if parsed["battery_soc"] is None and parsed["battery_voltage"] is not None:
+            parsed["battery_soc"] = self._estimate_soc_from_voltage(parsed["battery_voltage"])
+
         return parsed
+
+    def _estimate_soc_from_voltage(self, voltage: float) -> float:
+        """
+        Estimate SOC from voltage for 12V lead-acid battery.
+        This is approximate and works best for resting batteries (no load/charge).
+
+        Voltage table (resting, 25°C):
+        12.70V+ = 100%
+        12.50V  = 75%
+        12.30V  = 50%
+        12.10V  = 25%
+        11.90V  = 0%
+        """
+        if voltage >= 12.70:
+            return 100.0
+        elif voltage <= 11.90:
+            return 0.0
+        else:
+            # Linear interpolation between 11.9V (0%) and 12.7V (100%)
+            soc = (voltage - 11.90) / (12.70 - 11.90) * 100.0
+            return round(soc, 1)
