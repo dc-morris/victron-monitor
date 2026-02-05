@@ -1,6 +1,8 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -15,8 +17,66 @@ from vrm_client import VRMClient
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Battery configuration (configurable via environment variables)
+BATTERY_CAPACITY_AH = float(os.getenv("BATTERY_CAPACITY_AH", "100"))
+BATTERY_VOLTAGE_NOMINAL = float(os.getenv("BATTERY_VOLTAGE_NOMINAL", "12"))
+BATTERY_MIN_SOC = float(os.getenv("BATTERY_MIN_SOC", "50"))  # Don't discharge below this %
+
 vrm_client: VRMClient = None
 scheduler = AsyncIOScheduler()
+
+
+def calculate_time_remaining(
+    soc: Optional[float],
+    consumption_power: Optional[float],
+    solar_power: Optional[float],
+) -> dict:
+    """
+    Calculate estimated battery time remaining.
+
+    Returns dict with:
+    - hours_to_empty: time until 0% SOC
+    - hours_to_min: time until minimum safe SOC
+    - net_consumption: actual drain rate (consumption - solar)
+    """
+    result = {
+        "hours_to_empty": None,
+        "hours_to_min": None,
+        "net_consumption": None,
+        "is_discharging": False,
+    }
+
+    if soc is None:
+        return result
+
+    # Calculate net power draw (positive = discharging)
+    consumption = consumption_power or 0
+    solar = solar_power or 0
+    net = consumption - solar
+
+    result["net_consumption"] = round(net, 1)
+
+    # Only calculate if actually discharging
+    if net <= 0:
+        return result
+
+    result["is_discharging"] = True
+
+    # Battery capacity in Wh
+    capacity_wh = BATTERY_CAPACITY_AH * BATTERY_VOLTAGE_NOMINAL
+
+    # Energy remaining to empty
+    energy_to_empty = capacity_wh * (soc / 100)
+    result["hours_to_empty"] = round(energy_to_empty / net, 1)
+
+    # Energy remaining to minimum SOC
+    if soc > BATTERY_MIN_SOC:
+        energy_to_min = capacity_wh * ((soc - BATTERY_MIN_SOC) / 100)
+        result["hours_to_min"] = round(energy_to_min / net, 1)
+    else:
+        result["hours_to_min"] = 0
+
+    return result
 
 
 async def fetch_and_store_data():
@@ -112,6 +172,12 @@ async def get_current_data(db: Session = Depends(get_db)):
     if not reading:
         return {"error": "No data available"}
 
+    time_remaining = calculate_time_remaining(
+        reading.battery_soc,
+        reading.consumption_power,
+        reading.solar_power,
+    )
+
     return {
         "timestamp": reading.timestamp.isoformat(),
         "battery": {
@@ -120,6 +186,9 @@ async def get_current_data(db: Session = Depends(get_db)):
             "current": reading.battery_current,
             "power": reading.battery_power,
             "state": reading.battery_state,
+            "time_remaining": time_remaining,
+            "capacity_ah": BATTERY_CAPACITY_AH,
+            "min_soc": BATTERY_MIN_SOC,
         },
         "solar": {
             "power": reading.solar_power,

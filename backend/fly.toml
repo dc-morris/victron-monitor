@@ -5,6 +5,9 @@ primary_region = 'lhr'
 
 [env]
   DATABASE_URL = "sqlite:///data/victron.db"
+  BATTERY_CAPACITY_AH = "150"
+  BATTERY_VOLTAGE_NOMINAL = "12"
+  BATTERY_MIN_SOC = "50"
 
 [http_service]
   internal_port = 8000
