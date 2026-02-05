@@ -15,7 +15,8 @@ A simple energy monitoring dashboard for Victron systems using the VRM API.
 
 ## Features
 
-- **Battery monitoring** - Voltage, current, power, and estimated SOC (state of charge) from voltage
+- **Battery monitoring** - Voltage, current, power, and estimated SOC from voltage
+- **Time remaining** - Estimated hours until empty or minimum safe SOC based on consumption
 - **Solar tracking** - Real-time power output and daily yield
 - **Environment sensors** - Temperature and humidity from connected sensors (e.g., Ruuvi)
 - **Time travel** - Scroll through 24 hours of historical data and watch the dashboard update
@@ -78,15 +79,25 @@ A simple energy monitoring dashboard for Victron systems using the VRM API.
 - **Frontend**: React, Tailwind CSS
 - **Deployment**: Fly.io
 
-## Battery SOC Estimation
+## Battery Configuration
 
-Since not all Victron setups include a battery monitor (BMV), SOC is estimated from voltage using a lookup table for 12V lead-acid/AGM batteries. This is approximate and works best when the battery is at rest.
+Since not all Victron setups include a battery monitor (BMV/SmartShunt), SOC is estimated from voltage using a lookup table for 12V lead-acid/AGM batteries. This is approximate and works best when the battery is at rest.
+
+The system also calculates estimated time remaining based on current consumption. Configure your battery via environment variables:
+
+```bash
+fly secrets set BATTERY_CAPACITY_AH=150      # Total capacity in Ah (e.g., 2x 75Ah = 150)
+fly secrets set BATTERY_VOLTAGE_NOMINAL=12   # System voltage (12 or 24)
+fly secrets set BATTERY_MIN_SOC=50           # Minimum safe SOC % for lead-acid
+```
+
+Or set them in `backend/fly.toml` under `[env]`.
 
 ## API Endpoints
 
-- `GET /api/current` - Latest readings
-- `GET /api/history?hours=24` - Historical data
-- `GET /api/stats` - Today's statistics
+- `GET /api/current` - Latest readings (includes `battery.time_remaining` with hours to empty/min)
+- `GET /api/history?hours=24` - Historical data (max 168 hours)
+- `GET /api/stats` - Today's statistics (solar peak/avg, consumption avg)
 - `POST /api/refresh` - Trigger manual data refresh
 - `GET /api/health` - Health check
 
