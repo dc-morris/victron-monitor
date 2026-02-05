@@ -23,45 +23,59 @@ class VRMClient:
             "X-Authorization": f"Token {self.token}",
             "Content-Type": "application/json"
         }
+        # Reuse a single HTTP client to prevent memory leaks from repeated SSL context creation
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create the shared HTTP client."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=30.0)
+        return self._client
+
+    async def close(self):
+        """Close the HTTP client."""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
 
     async def get_installation_stats(self) -> Optional[dict]:
         """Get current system stats from VRM."""
         url = f"{VRM_API_BASE}/installations/{self.installation_id}/system-overview"
 
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(url, headers=self.headers, timeout=30.0)
-                response.raise_for_status()
-                return response.json()
-            except httpx.HTTPError as e:
-                logger.error(f"Failed to fetch VRM stats: {e}")
-                return None
+        try:
+            client = await self._get_client()
+            response = await client.get(url, headers=self.headers)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to fetch VRM stats: {e}")
+            return None
 
     async def get_diagnostic_data(self) -> Optional[dict]:
         """Get diagnostic data with all available attributes."""
         url = f"{VRM_API_BASE}/installations/{self.installation_id}/diagnostics"
 
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(url, headers=self.headers, timeout=30.0)
-                response.raise_for_status()
-                return response.json()
-            except httpx.HTTPError as e:
-                logger.error(f"Failed to fetch VRM diagnostics: {e}")
-                return None
+        try:
+            client = await self._get_client()
+            response = await client.get(url, headers=self.headers)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to fetch VRM diagnostics: {e}")
+            return None
 
     async def get_widgets(self) -> Optional[dict]:
         """Get widget data for the installation."""
         url = f"{VRM_API_BASE}/installations/{self.installation_id}/widgets/summary"
 
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(url, headers=self.headers, timeout=30.0)
-                response.raise_for_status()
-                return response.json()
-            except httpx.HTTPError as e:
-                logger.error(f"Failed to fetch VRM widgets: {e}")
-                return None
+        try:
+            client = await self._get_client()
+            response = await client.get(url, headers=self.headers)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to fetch VRM widgets: {e}")
+            return None
 
     def parse_diagnostic_data(self, data: dict) -> dict:
         """Parse diagnostic data into a structured format."""

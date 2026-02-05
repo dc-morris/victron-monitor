@@ -84,6 +84,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     if scheduler.running:
         scheduler.shutdown()
+    if vrm_client:
+        await vrm_client.close()
 
 
 app = FastAPI(title="Victron Monitor", lifespan=lifespan)
