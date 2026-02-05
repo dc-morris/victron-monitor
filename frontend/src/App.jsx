@@ -93,7 +93,7 @@ const LightModeIcon = () => (
   </svg>
 )
 
-function BatteryCard({ data }) {
+function BatteryCard({ data, timeRemaining }) {
   const voltage = data?.battery_voltage ?? null
   const current = data?.battery_current ?? 0
   const power = data?.battery_power ?? 0
@@ -104,6 +104,21 @@ function BatteryCard({ data }) {
     if (state === 'charging' || state === '1' || state === 1) return 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30'
     if (state === 'discharging' || state === '2' || state === 2) return 'text-rose-500 bg-rose-50 dark:bg-rose-900/30'
     return 'text-gray-500 bg-gray-100 dark:bg-gray-700'
+  }
+
+  const formatHours = (hours) => {
+    if (hours === null || hours === undefined) return '--'
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24)
+      const remainingHours = Math.round(hours % 24)
+      return `${days}d ${remainingHours}h`
+    }
+    if (hours >= 1) {
+      const wholeHours = Math.floor(hours)
+      const minutes = Math.round((hours - wholeHours) * 60)
+      return `${wholeHours}h ${minutes}m`
+    }
+    return `${Math.round(hours * 60)}m`
   }
 
   return (
@@ -123,6 +138,23 @@ function BatteryCard({ data }) {
       <div className="flex justify-center my-6">
         <CircularGauge value={soc} color={getSOCColor(soc)} />
       </div>
+
+      {/* Time remaining - only show when discharging */}
+      {timeRemaining?.is_discharging && (
+        <div className="bg-gradient-to-r from-rose-50 to-orange-50 dark:from-rose-900/30 dark:to-orange-900/30 rounded-xl p-3 mb-4">
+          <div className="flex justify-between items-center">
+            <div className="text-center flex-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400">To 50%</p>
+              <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatHours(timeRemaining.hours_to_min)}</p>
+            </div>
+            <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
+            <div className="text-center flex-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400">To Empty</p>
+              <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatHours(timeRemaining.hours_to_empty)}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
         <div className="text-center">
@@ -382,6 +414,7 @@ function App() {
         battery_current: current.battery?.current,
         battery_power: current.battery?.power,
         battery_state: current.battery?.state,
+        time_remaining: current.battery?.time_remaining,
         solar_power: current.solar?.power,
         solar_voltage: current.solar?.voltage,
         solar_current: current.solar?.current,
@@ -390,7 +423,7 @@ function App() {
         humidity: current.environment?.humidity,
       } : null
     } else {
-      // Historical mode - use selected reading
+      // Historical mode - use selected reading (no time_remaining for historical)
       return history.readings[selectedIndex]
     }
   }, [isLive, current, history, selectedIndex])
@@ -450,7 +483,7 @@ function App() {
 
         {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-          <BatteryCard data={displayData} />
+          <BatteryCard data={displayData} timeRemaining={displayData?.time_remaining} />
           <SolarCard data={displayData} />
           <EnvironmentCard data={displayData} />
         </div>
