@@ -245,7 +245,37 @@ function SolarCard({ data }) {
   )
 }
 
-function EnvironmentCard({ data }) {
+const SunriseIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m3.343-5.657L5.636 5.636m12.728 0l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 19h14" />
+  </svg>
+)
+
+const SunsetIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m3.343-5.657L5.636 5.636m12.728 0l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 19H5" />
+  </svg>
+)
+
+const getWeatherEmoji = (icon) => {
+  // OpenWeatherMap icon codes to emoji
+  const iconMap = {
+    '01d': '☀️', '01n': '🌙',  // clear
+    '02d': '⛅', '02n': '☁️',  // few clouds
+    '03d': '☁️', '03n': '☁️',  // scattered clouds
+    '04d': '☁️', '04n': '☁️',  // broken clouds
+    '09d': '🌧️', '09n': '🌧️', // shower rain
+    '10d': '🌦️', '10n': '🌧️', // rain
+    '11d': '⛈️', '11n': '⛈️',  // thunderstorm
+    '13d': '❄️', '13n': '❄️',  // snow
+    '50d': '🌫️', '50n': '🌫️', // mist
+  }
+  return iconMap[icon] || '🌡️'
+}
+
+function EnvironmentCard({ data, sunInfo }) {
   const temp = data?.temperature ?? null
   const humidity = data?.humidity ?? null
 
@@ -258,9 +288,14 @@ function EnvironmentCard({ data }) {
           </div>
           <h3 className="font-semibold text-gray-700 dark:text-gray-200">Environment</h3>
         </div>
+        {sunInfo?.weather && (
+          <span className="text-2xl" title={sunInfo.weather.description}>
+            {getWeatherEmoji(sunInfo.weather.icon)}
+          </span>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-6 my-6">
+      <div className="grid grid-cols-2 gap-6 my-4">
         <div className="text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Temperature</p>
           <div className="text-4xl font-bold text-cyan-500">{temp?.toFixed(1) ?? '--'}</div>
@@ -272,6 +307,31 @@ function EnvironmentCard({ data }) {
           <div className="text-gray-400 text-sm mt-1">%</div>
         </div>
       </div>
+
+      {/* Sun info */}
+      {sunInfo && (
+        <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="flex flex-col items-center">
+              <span className="text-amber-500"><SunriseIcon /></span>
+              <span className="text-xs text-gray-400 mt-1">Sunrise</span>
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{sunInfo.sunrise}</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-orange-500"><SunsetIcon /></span>
+              <span className="text-xs text-gray-400 mt-1">Sunset</span>
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{sunInfo.sunset}</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-yellow-500">☀️</span>
+              <span className="text-xs text-gray-400 mt-1">Daylight</span>
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                {sunInfo.daylight_remaining_hours > 0 ? `${sunInfo.daylight_remaining_hours}h` : '--'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -363,6 +423,7 @@ function TimeSlider({ history, selectedIndex, onIndexChange, isLive, onLiveToggl
 function App() {
   const [current, setCurrent] = useState(null)
   const [history, setHistory] = useState(null)
+  const [sunInfo, setSunInfo] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [error, setError] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -389,9 +450,10 @@ function App() {
   const fetchData = async () => {
     setRefreshing(true)
     try {
-      const [currentRes, historyRes] = await Promise.all([
+      const [currentRes, historyRes, sunRes] = await Promise.all([
         fetch(`${API_BASE}/api/current`),
-        fetch(`${API_BASE}/api/history?hours=24`)
+        fetch(`${API_BASE}/api/history?hours=24`),
+        fetch(`${API_BASE}/api/sun`)
       ])
 
       if (currentRes.ok) {
@@ -410,6 +472,11 @@ function App() {
         if (isLive && data.readings?.length > 0) {
           setSelectedIndex(data.readings.length - 1)
         }
+      }
+
+      if (sunRes.ok) {
+        const data = await sunRes.json()
+        setSunInfo(data)
       }
     } catch (e) {
       setError('Failed to connect')
@@ -511,7 +578,7 @@ function App() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
           <BatteryCard data={displayData} timeRemaining={displayData?.time_remaining} />
           <SolarCard data={displayData} />
-          <EnvironmentCard data={displayData} />
+          <EnvironmentCard data={displayData} sunInfo={sunInfo} />
         </div>
 
         {/* Time Slider */}
