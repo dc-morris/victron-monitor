@@ -306,9 +306,10 @@ async def health_check():
 @app.get("/api/sun")
 async def get_sun_info():
     """Get sunrise, sunset, and daylight information."""
+    from zoneinfo import ZoneInfo
+
     from astral import LocationInfo
     from astral.sun import sun
-    from zoneinfo import ZoneInfo
 
     try:
         location = LocationInfo(
@@ -380,4 +381,4 @@ async def get_sun_info():
 
     except Exception as e:
         logger.error(f"Failed to calculate sun times: {e}")
-        raise HTTPException(status_code=500, detail="Failed to calculate sun times")
+        raise HTTPException(status_code=500, detail="Failed to calculate sun times") from None
