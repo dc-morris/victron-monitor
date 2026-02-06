@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Optional
 
+import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +32,7 @@ LOCATION_NAME = os.getenv("LOCATION_NAME", "London")
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
 
 vrm_client: VRMClient = None
+http_client: httpx.AsyncClient = None
 scheduler = AsyncIOScheduler()
 
 
@@ -137,12 +139,35 @@ async def fetch_and_store_data():
         logger.error(f"Error fetching/storing data: {e}")
 
 
+def cleanup_old_readings():
+    """Delete readings older than 7 days to prevent unbounded database growth."""
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        deleted = db.query(EnergyReading).filter(
+            EnergyReading.timestamp < cutoff
+        ).delete()
+        db.commit()
+        if deleted:
+            logger.info(f"Cleaned up {deleted} readings older than 7 days")
+    except Exception as e:
+        logger.error(f"Error cleaning up old readings: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global vrm_client
+    global vrm_client, http_client
 
     # Initialize database
     init_db()
+
+    # Initialize shared HTTP client
+    http_client = httpx.AsyncClient(timeout=10.0)
 
     # Initialize VRM client
     try:
@@ -152,10 +177,14 @@ async def lifespan(app: FastAPI):
         logger.error(f"VRM client initialization failed: {e}")
         logger.warning("Running without VRM connection - configure VRM_TOKEN and VRM_INSTALLATION_ID")
 
-    # Start scheduler for periodic data fetching
+    # Start scheduler for periodic data fetching and cleanup
+    scheduler.add_job(cleanup_old_readings, 'interval', hours=1, id='cleanup_old_readings')
     if vrm_client:
         scheduler.add_job(fetch_and_store_data, 'interval', minutes=1, id='fetch_vrm_data')
-        scheduler.start()
+    scheduler.start()
+    # Run cleanup on startup
+    cleanup_old_readings()
+    if vrm_client:
         # Fetch initial data
         await fetch_and_store_data()
 
@@ -166,6 +195,8 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown()
     if vrm_client:
         await vrm_client.close()
+    if http_client:
+        await http_client.aclose()
 
 
 app = FastAPI(title="Victron Monitor", lifespan=lifespan)
@@ -351,29 +382,26 @@ async def get_sun_info():
         }
 
         # Add weather if API key is configured
-        if OPENWEATHER_API_KEY:
+        if OPENWEATHER_API_KEY and http_client:
             try:
-                import httpx
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(
-                        "https://api.openweathermap.org/data/2.5/weather",
-                        params={
-                            "lat": LOCATION_LAT,
-                            "lon": LOCATION_LON,
-                            "appid": OPENWEATHER_API_KEY,
-                            "units": "metric",
-                        },
-                        timeout=5.0,
-                    )
-                    if resp.status_code == 200:
-                        weather = resp.json()
-                        result["weather"] = {
-                            "condition": weather["weather"][0]["main"],
-                            "description": weather["weather"][0]["description"],
-                            "icon": weather["weather"][0]["icon"],
-                            "temp": weather["main"]["temp"],
-                            "clouds": weather["clouds"]["all"],
-                        }
+                resp = await http_client.get(
+                    "https://api.openweathermap.org/data/2.5/weather",
+                    params={
+                        "lat": LOCATION_LAT,
+                        "lon": LOCATION_LON,
+                        "appid": OPENWEATHER_API_KEY,
+                        "units": "metric",
+                    },
+                )
+                if resp.status_code == 200:
+                    weather = resp.json()
+                    result["weather"] = {
+                        "condition": weather["weather"][0]["main"],
+                        "description": weather["weather"][0]["description"],
+                        "icon": weather["weather"][0]["icon"],
+                        "temp": weather["main"]["temp"],
+                        "clouds": weather["clouds"]["all"],
+                    }
             except Exception as e:
                 logger.warning(f"Failed to fetch weather: {e}")
 

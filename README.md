@@ -19,9 +19,10 @@ A simple energy monitoring dashboard for Victron systems using the VRM API.
 - **Time remaining** - Estimated hours until empty or minimum safe SOC based on consumption
 - **Solar tracking** - Real-time power output and daily yield
 - **Environment sensors** - Temperature and humidity from connected sensors (e.g., Ruuvi)
+- **Sunrise/sunset** - Daylight hours and optional weather conditions via OpenWeather API
 - **Time travel** - Scroll through 24 hours of historical data and watch the dashboard update
 - **Auto-refresh** - Dashboard updates every 30 seconds
-- **Data logging** - Historical data stored locally in SQLite
+- **Data logging** - Historical data stored locally in SQLite with automatic 7-day retention
 - **Modern UI** - Clean, responsive design with circular gauges and color-coded status
 - **Dark mode** - Toggle between light and dark themes, respects system preference
 
@@ -96,8 +97,9 @@ Or set them in `backend/fly.toml` under `[env]`.
 ## API Endpoints
 
 - `GET /api/current` - Latest readings (includes `battery.time_remaining` with hours to empty/min)
-- `GET /api/history?hours=24` - Historical data (max 168 hours)
+- `GET /api/history?hours=24` - Historical data (max 168 hours / 1 week)
 - `GET /api/stats` - Today's statistics (solar peak/avg, consumption avg)
+- `GET /api/sun` - Sunrise/sunset times, daylight remaining, and weather (if configured)
 - `POST /api/refresh` - Trigger manual data refresh
 - `GET /api/health` - Health check
 

@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,9 +10,9 @@ os.environ["BATTERY_CAPACITY_AH"] = "150"
 os.environ["BATTERY_VOLTAGE_NOMINAL"] = "12"
 os.environ["BATTERY_MIN_SOC"] = "50"
 
-from database import engine
-from main import app, calculate_time_remaining
-from models import Base
+from database import SessionLocal, engine
+from main import app, calculate_time_remaining, cleanup_old_readings
+from models import Base, EnergyReading
 from vrm_client import VRMClient
 
 
@@ -283,3 +284,89 @@ class TestTimeRemaining:
             solar_power=0.0
         )
         assert result["hours_to_min"] == 10.8
+
+
+class TestCleanupOldReadings:
+    def test_deletes_old_readings(self):
+        """Readings older than 7 days should be deleted."""
+        db = SessionLocal()
+        try:
+            old_reading = EnergyReading(
+                timestamp=datetime.utcnow() - timedelta(days=8),
+                battery_voltage=12.5,
+                solar_power=100.0,
+            )
+            db.add(old_reading)
+            db.commit()
+            assert db.query(EnergyReading).count() == 1
+        finally:
+            db.close()
+
+        cleanup_old_readings()
+
+        db = SessionLocal()
+        try:
+            assert db.query(EnergyReading).count() == 0
+        finally:
+            db.close()
+
+    def test_keeps_recent_readings(self):
+        """Readings within the last 7 days should be kept."""
+        db = SessionLocal()
+        try:
+            recent_reading = EnergyReading(
+                timestamp=datetime.utcnow() - timedelta(days=3),
+                battery_voltage=12.8,
+                solar_power=200.0,
+            )
+            db.add(recent_reading)
+            db.commit()
+        finally:
+            db.close()
+
+        cleanup_old_readings()
+
+        db = SessionLocal()
+        try:
+            assert db.query(EnergyReading).count() == 1
+        finally:
+            db.close()
+
+    def test_mixed_old_and_recent(self):
+        """Only old readings should be deleted, recent ones kept."""
+        db = SessionLocal()
+        try:
+            old = EnergyReading(
+                timestamp=datetime.utcnow() - timedelta(days=10),
+                battery_voltage=12.0,
+            )
+            recent = EnergyReading(
+                timestamp=datetime.utcnow() - timedelta(hours=1),
+                battery_voltage=12.9,
+            )
+            db.add_all([old, recent])
+            db.commit()
+        finally:
+            db.close()
+
+        cleanup_old_readings()
+
+        db = SessionLocal()
+        try:
+            remaining = db.query(EnergyReading).all()
+            assert len(remaining) == 1
+            assert remaining[0].battery_voltage == 12.9
+        finally:
+            db.close()
+
+
+class TestSunEndpoint:
+    def test_sun_returns_data(self):
+        response = client.get("/api/sun")
+        assert response.status_code == 200
+        data = response.json()
+        assert "sunrise" in data
+        assert "sunset" in data
+        assert "daylight_remaining_hours" in data
+        assert "is_daylight" in data
+        assert "location" in data
