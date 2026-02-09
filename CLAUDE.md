@@ -22,10 +22,8 @@ npm run test:run   # Run tests
 npm run build      # Production build
 ```
 
-### Fly.io Deployment
+### Fly.io (auto-deploys on push to main)
 ```bash
-cd backend && fly deploy      # Deploy backend
-cd frontend && fly deploy     # Deploy frontend
 fly status -a victron-monitor-api  # Check backend status
 fly status -a victron-monitor      # Check frontend status
 fly logs -a victron-monitor-api    # View backend logs
