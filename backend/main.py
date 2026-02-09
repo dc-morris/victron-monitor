@@ -259,11 +259,19 @@ async def get_current_data(db: Session = Depends(get_db)):
 
 @app.get("/api/history")
 async def get_history(hours: int = Query(24, ge=1, le=168), db: Session = Depends(get_db)):
-    """Get historical readings (max 168 hours / 1 week)."""
+    """Get historical readings (max 168 hours / 1 week).
+
+    For ranges over 24 hours, readings are downsampled to keep response
+    size bounded (~1440 points max) and reduce memory usage.
+    """
     since = datetime.utcnow() - timedelta(hours=hours)
     readings = db.query(EnergyReading).filter(
         EnergyReading.timestamp >= since
     ).order_by(EnergyReading.timestamp).all()
+
+    # Downsample for large ranges: keep ~1440 points (one per minute for 24h)
+    step = max(1, len(readings) // 1440)
+    sampled = readings[::step] if step > 1 else readings
 
     return {
         "readings": [
@@ -280,7 +288,7 @@ async def get_history(hours: int = Query(24, ge=1, le=168), db: Session = Depend
                 "temperature": r.temperature,
                 "humidity": r.humidity,
             }
-            for r in readings
+            for r in sampled
         ]
     }
 
