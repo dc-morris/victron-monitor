@@ -2,7 +2,7 @@ import asyncio
 import gc
 import logging
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -214,10 +214,8 @@ async def lifespan(app: FastAPI):
     for task in _background_tasks:
         task.cancel()
     for task in _background_tasks:
-        try:
+        with suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
     _background_tasks.clear()
 
     if vrm_client:
