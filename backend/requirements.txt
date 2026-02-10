@@ -2,6 +2,5 @@ fastapi==0.128.1
 uvicorn==0.40.0
 httpx==0.27.2
 sqlalchemy==2.0.35
-apscheduler==3.11.2
 python-dotenv==1.0.1
 astral==3.2

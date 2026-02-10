@@ -1,3 +1,5 @@
+import asyncio
+import gc
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -5,7 +7,6 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import httpx
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import desc
@@ -33,7 +34,7 @@ OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
 
 vrm_client: VRMClient = None
 http_client: httpx.AsyncClient = None
-scheduler = AsyncIOScheduler()
+_background_tasks: list[asyncio.Task] = []
 
 
 def calculate_time_remaining(
@@ -159,6 +160,27 @@ def cleanup_old_readings():
         db.close()
 
 
+async def _periodic_fetch():
+    """Fetch VRM data every 60 seconds."""
+    while True:
+        try:
+            await fetch_and_store_data()
+        except Exception as e:
+            logger.error(f"Periodic fetch error: {e}")
+        await asyncio.sleep(60)
+
+
+async def _periodic_cleanup():
+    """Clean up old readings every hour and collect garbage."""
+    while True:
+        try:
+            cleanup_old_readings()
+            gc.collect()
+        except Exception as e:
+            logger.error(f"Periodic cleanup error: {e}")
+        await asyncio.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global vrm_client, http_client
@@ -177,22 +199,27 @@ async def lifespan(app: FastAPI):
         logger.error(f"VRM client initialization failed: {e}")
         logger.warning("Running without VRM connection - configure VRM_TOKEN and VRM_INSTALLATION_ID")
 
-    # Start scheduler for periodic data fetching and cleanup
-    scheduler.add_job(cleanup_old_readings, 'interval', hours=1, id='cleanup_old_readings')
-    if vrm_client:
-        scheduler.add_job(fetch_and_store_data, 'interval', minutes=1, id='fetch_vrm_data')
-    scheduler.start()
     # Run cleanup on startup
     cleanup_old_readings()
+
+    # Start background tasks
+    _background_tasks.append(asyncio.create_task(_periodic_cleanup()))
     if vrm_client:
-        # Fetch initial data
         await fetch_and_store_data()
+        _background_tasks.append(asyncio.create_task(_periodic_fetch()))
 
     yield
 
-    # Shutdown
-    if scheduler.running:
-        scheduler.shutdown()
+    # Shutdown background tasks
+    for task in _background_tasks:
+        task.cancel()
+    for task in _background_tasks:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    _background_tasks.clear()
+
     if vrm_client:
         await vrm_client.close()
     if http_client:
@@ -263,9 +290,22 @@ async def get_history(hours: int = Query(24, ge=1, le=168), db: Session = Depend
 
     For ranges over 24 hours, readings are downsampled to keep response
     size bounded (~1440 points max) and reduce memory usage.
+    Uses column projections (lightweight tuples) instead of full ORM objects.
     """
     since = datetime.utcnow() - timedelta(hours=hours)
-    readings = db.query(EnergyReading).filter(
+    readings = db.query(
+        EnergyReading.timestamp,
+        EnergyReading.battery_voltage,
+        EnergyReading.battery_current,
+        EnergyReading.battery_power,
+        EnergyReading.battery_state,
+        EnergyReading.solar_power,
+        EnergyReading.solar_voltage,
+        EnergyReading.solar_current,
+        EnergyReading.solar_yield_today,
+        EnergyReading.temperature,
+        EnergyReading.humidity,
+    ).filter(
         EnergyReading.timestamp >= since
     ).order_by(EnergyReading.timestamp).all()
 
