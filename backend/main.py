@@ -10,6 +10,7 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database import get_db, init_db
@@ -136,7 +137,7 @@ async def fetch_and_store_data():
             logger.info(f"Stored reading: SOC={parsed['battery_soc']}%, Solar={parsed['solar_power']}W")
         finally:
             db.close()
-    except Exception as e:
+    except (httpx.HTTPError, KeyError, SQLAlchemyError) as e:
         logger.error(f"Error fetching/storing data: {e}")
 
 
@@ -153,7 +154,7 @@ def cleanup_old_readings():
         db.commit()
         if deleted:
             logger.info(f"Cleaned up {deleted} readings older than 7 days")
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error(f"Error cleaning up old readings: {e}")
         db.rollback()
     finally:
@@ -165,7 +166,7 @@ async def _periodic_fetch():
     while True:
         try:
             await fetch_and_store_data()
-        except Exception as e:
+        except Exception as e:  # Broad catch: background task must not crash
             logger.error(f"Periodic fetch error: {e}")
         await asyncio.sleep(60)
 
@@ -176,7 +177,7 @@ async def _periodic_cleanup():
         try:
             cleanup_old_readings()
             gc.collect()
-        except Exception as e:
+        except Exception as e:  # Broad catch: background task must not crash
             logger.error(f"Periodic cleanup error: {e}")
         await asyncio.sleep(3600)
 
@@ -448,11 +449,11 @@ async def get_sun_info():
                         "temp": weather["main"]["temp"],
                         "clouds": weather["clouds"]["all"],
                     }
-            except Exception as e:
+            except (httpx.HTTPError, KeyError, IndexError) as e:
                 logger.warning(f"Failed to fetch weather: {e}")
 
         return result
 
-    except Exception as e:
+    except (ValueError, KeyError) as e:
         logger.error(f"Failed to calculate sun times: {e}")
         raise HTTPException(status_code=500, detail="Failed to calculate sun times") from None
