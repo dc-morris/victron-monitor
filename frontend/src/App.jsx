@@ -466,11 +466,14 @@ function App() {
       }
 
       if (historyRes.ok) {
+        const prevLength = history?.readings?.length ?? 0
         const data = await historyRes.json()
         setHistory(data)
-        // If live mode, keep slider at the end
         if (isLive && data.readings?.length > 0) {
-          setSelectedIndex(data.readings.length - 1)
+          const wasAtEnd = prevLength === 0 || selectedIndex >= prevLength - 1
+          if (wasAtEnd) {
+            setSelectedIndex(data.readings.length - 1)
+          }
         }
       }
 
@@ -490,13 +493,6 @@ function App() {
     const interval = setInterval(fetchData, 30000)
     return () => clearInterval(interval)
   }, [])
-
-  // When new data arrives and we're in live mode, update selected index
-  useEffect(() => {
-    if (isLive && history?.readings?.length > 0) {
-      setSelectedIndex(history.readings.length - 1)
-    }
-  }, [history, isLive])
 
   // Get the display data based on mode
   const displayData = useMemo(() => {
