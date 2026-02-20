@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { voltageToSOC, getStateLabel, getSOCColor, formatTime } from './utils'
 
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000')
@@ -460,7 +460,7 @@ function App() {
         const data = await currentRes.json()
         if (!data.error) {
           setCurrent(data)
-          setLastUpdate(new Date())
+          setLastUpdate(data.timestamp ? new Date(data.timestamp) : new Date())
           setError(null)
         }
       }
@@ -488,9 +488,12 @@ function App() {
     setRefreshing(false)
   }
 
+  const fetchDataRef = useRef(fetchData)
+  fetchDataRef.current = fetchData
+
   useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 30000)
+    fetchDataRef.current()
+    const interval = setInterval(() => fetchDataRef.current(), 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -541,11 +544,23 @@ function App() {
                 Viewing History
               </span>
             )}
-            {lastUpdate && isLive && (
-              <span className="text-sm text-gray-400">
-                Updated {lastUpdate.toLocaleTimeString()}
-              </span>
-            )}
+            {lastUpdate && isLive && (() => {
+              const ageMs = Date.now() - lastUpdate.getTime()
+              const ageMins = Math.floor(ageMs / 60000)
+              const isStale = ageMins >= 5
+              const ageLabel = ageMins < 1 ? 'just now'
+                : ageMins < 60 ? `${ageMins}m ago`
+                : `${Math.floor(ageMins / 60)}h ${ageMins % 60}m ago`
+              return (
+                <span className={`text-sm font-medium px-2 py-1 rounded-lg ${
+                  isStale
+                    ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
+                    : 'text-gray-400'
+                }`}>
+                  {isStale ? `Data ${ageLabel}` : `Updated ${lastUpdate.toLocaleTimeString()}`}
+                </span>
+              )
+            })()}
             <button
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl shadow-sm hover:shadow-md dark:shadow-none transition-all border border-gray-200 dark:border-gray-700"
