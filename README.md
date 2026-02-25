@@ -6,7 +6,7 @@
 
 A simple energy monitoring dashboard for Victron systems using the VRM API.
 
-**Live Demo:** [energy.campervan-ventures.com](https://energy.campervan-ventures.com)
+**Live Demo:** [victron-monitor.fly.dev](https://victron-monitor.fly.dev/)
 
 <p align="center">
   <img src="docs/screenshot-light.png" width="45%" alt="Light Mode" />
