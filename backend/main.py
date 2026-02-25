@@ -233,6 +233,7 @@ app.add_middleware(
     allow_origins=[
         "https://victron-monitor.fly.dev",
         "https://campervan-ventures.fly.dev",
+        "https://energy.campervan-ventures.com",
         "http://localhost:5173",
         "http://localhost:3000",
     ],
