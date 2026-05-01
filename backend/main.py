@@ -258,7 +258,7 @@ async def get_current_data(db: Session = Depends(get_db)):
     )
 
     return {
-        "timestamp": reading.timestamp.isoformat(),
+        "timestamp": reading.timestamp.isoformat() + "Z",
         "battery": {
             "soc": reading.battery_soc,
             "voltage": reading.battery_voltage,
@@ -317,7 +317,7 @@ async def get_history(hours: int = Query(24, ge=1, le=168), db: Session = Depend
     return {
         "readings": [
             {
-                "timestamp": r.timestamp.isoformat(),
+                "timestamp": r.timestamp.isoformat() + "Z",
                 "battery_voltage": r.battery_voltage,
                 "battery_current": r.battery_current,
                 "battery_power": r.battery_power,
