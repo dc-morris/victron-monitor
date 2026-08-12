@@ -1,0 +1,450 @@
+-- allium: 3
+-- victron-monitor.allium
+--
+-- Specification of the Victron Monitor energy-monitoring system: a backend
+-- that polls a remote Victron VRM installation for diagnostics and a single
+-- dashboard surface that presents the live and recent state of the system.
+--
+-- Scope
+-- -----
+-- Includes:
+--   * Periodic polling of a VRM installation and storage of timestamped
+--     EnergyReadings
+--   * Derivation of battery state-of-charge from voltage when no battery
+--     monitor is reporting SOC
+--   * Time-remaining estimates (to empty / to minimum / to full) based on
+--     net power flow and the configured battery characteristics
+--   * Rolling retention of readings for a fixed window
+--   * Dashboard view: live readings, historical scrubbing, staleness
+--     indicator, sunrise/sunset, optional weather
+--
+-- Excludes:
+--   * Persistence mechanism (SQLite, ORM, schema migrations)
+--   * Memory mitigations (history downsampling, garbage collection,
+--     connection pooling)
+--   * HTTP/CORS/authentication and the specific wire protocol
+--   * Deployment topology (Fly.io, persistent volumes)
+--   * Presentational concerns (dark mode, gauges, animations, icons)
+
+------------------------------------------------------------
+-- Given
+------------------------------------------------------------
+
+given {
+    monitor: Monitor
+}
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- A weather snapshot supplied by an external weather provider. Optional:
+-- the dashboard functions without weather information.
+external entity WeatherReport {
+    condition: String
+    description: String
+    icon_code: String
+    temperature: Decimal
+    cloud_cover: Integer
+}
+
+-- A minimal placeholder for the unauthenticated dashboard caller. The
+-- system has no per-user identity model; this exists so the dashboard
+-- surface has a typed counterpart.
+external entity DashboardClient {}
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+-- Geographical position used to compute sunrise / sunset and to fetch
+-- weather for the dashboard.
+value GeoLocation {
+    name: String
+    timezone: String
+    latitude: Decimal
+    longitude: Decimal
+}
+
+-- The structured payload returned by a single fetch of VRM diagnostics.
+-- Any field may be absent: a given installation does not necessarily
+-- report every code (e.g. reported_soc is only present when a battery
+-- monitor is installed).
+value VrmDiagnostics {
+    battery_voltage: Decimal?
+    battery_current: Decimal?
+    battery_power: Decimal?
+    battery_temperature: Decimal?
+    reported_soc: Decimal?
+    battery_state: BatteryState?
+
+    solar_power: Decimal?
+    solar_voltage: Decimal?
+    solar_current: Decimal?
+    solar_yield_today: Decimal?
+
+    consumption_power: Decimal?
+    temperature: Decimal?
+    humidity: Decimal?
+}
+
+-- Estimated battery runtime derived from the current reading and the
+-- configured battery characteristics.
+value TimeRemaining {
+    net_power: Decimal
+    is_discharging: Boolean
+    is_charging: Boolean
+    hours_to_empty: Decimal?
+    hours_to_min: Decimal?
+    hours_to_full: Decimal?
+    -- Runtime at the current load alone, ignoring solar. Available
+    -- regardless of charge direction, so a runtime estimate can always
+    -- be shown (even while charging or idle).
+    load_hours_to_empty: Decimal?
+    load_hours_to_min: Decimal?
+}
+
+-- Daylight information for the dashboard's configured location.
+value SunInfo {
+    sunrise: Timestamp
+    sunset: Timestamp
+    daylight_remaining: Duration
+    is_daylight: Boolean
+    location: GeoLocation
+}
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum BatteryState { charging | discharging | idle | unknown }
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+-- A timestamped snapshot of measurements polled from VRM. Readings are
+-- the unit of historical record: every value the dashboard displays is
+-- either the most recent reading or a reading from the retained window.
+entity EnergyReading {
+    timestamp: Timestamp
+
+    -- Battery measurements as reported by VRM.
+    battery_voltage: Decimal?
+    battery_current: Decimal?
+    battery_power: Decimal?
+    battery_temperature: Decimal?
+    battery_state: BatteryState?
+
+    -- State-of-charge directly reported by a battery monitor (BMV /
+    -- SmartShunt). Absent when no monitor is installed; in that case
+    -- effective_soc falls back to a voltage-based estimate.
+    reported_soc: Decimal?
+
+    -- Solar / PV measurements.
+    solar_power: Decimal?
+    solar_voltage: Decimal?
+    solar_current: Decimal?
+    solar_yield_today: Decimal?
+
+    -- System load.
+    consumption_power: Decimal?
+
+    -- Environment sensor (e.g. Ruuvi) readings.
+    temperature: Decimal?
+    humidity: Decimal?
+
+    -- The SOC the dashboard displays: prefer a directly reported value;
+    -- otherwise estimate from the battery voltage. Null when neither is
+    -- available.
+    effective_soc: reported_soc ?? voltage_to_soc(battery_voltage)
+
+    -- Runtime estimate derived from the current reading.
+    time_remaining: time_remaining_estimate(
+        effective_soc,
+        consumption_power,
+        solar_power,
+        config.battery_capacity_ah,
+        config.battery_voltage_nominal,
+        config.battery_min_soc
+    )
+
+    -- Age of this reading relative to evaluation time.
+    age: now - timestamp
+
+    -- A reading is stale when its age exceeds the configured threshold;
+    -- the dashboard surfaces this state to the viewer.
+    is_stale: age >= config.stale_threshold
+}
+
+-- Singleton entity holding system-wide state: the time of the most
+-- recent VRM poll and the most recently stored reading. The dashboard
+-- always presents `latest_reading` as its "live" view.
+entity Monitor {
+    last_polled_at: Timestamp?
+    latest_reading: EnergyReading?
+
+    -- The scheduled time of the next VRM poll. Until the first poll,
+    -- next_poll_at evaluates to now so that the poll rule fires
+    -- immediately on startup.
+    next_poll_at: (last_polled_at ?? (now - config.poll_interval)) + config.poll_interval
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    -- The VRM installation polled by this deployment. Mandatory.
+    vrm_installation_id: String
+
+    -- Data collection cadence and retention window.
+    poll_interval: Duration = 1.minute
+    reading_retention: Duration = 7.days
+
+    -- Battery characteristics used to derive time-remaining. Tuned per
+    -- installation: a 2x75Ah system uses capacity 150Ah, etc.
+    battery_capacity_ah: Decimal = 100
+    battery_voltage_nominal: Decimal = 12
+    battery_min_soc: Decimal = 50
+
+    -- Dashboard behaviour.
+    dashboard_refresh: Duration = 30.seconds
+    stale_threshold: Duration = 5.minutes
+    history_window: Duration = 24.hours
+    history_window_max: Duration = 7.days
+
+    -- Location used for sunrise/sunset and (optional) weather.
+    location: GeoLocation = {
+        name: "London",
+        timezone: "Europe/London",
+        latitude: 51.5074,
+        longitude: -0.1278
+    }
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Periodic poll: the monitor fetches a fresh set of diagnostics on each
+-- poll interval. The fetch outcome is emitted as a chained trigger so
+-- the storage rule and the manual-refresh rule share a single path.
+rule PollVrm {
+    when: _: Monitor.next_poll_at <= now
+    ensures: monitor.last_polled_at = now
+    ensures: DiagnosticsFetched(installation_id: config.vrm_installation_id)
+}
+
+-- The viewer may force a refresh outside the poll cadence. The manual
+-- path advances last_polled_at so that the next periodic poll is
+-- rescheduled relative to the manual fetch, not the previous tick.
+rule ManuallyRefresh {
+    when: RequestRefresh(viewer)
+    ensures: monitor.last_polled_at = now
+    ensures: DiagnosticsFetched(installation_id: config.vrm_installation_id)
+}
+
+-- Common storage path: any diagnostic fetch produces an EnergyReading
+-- and advances the monitor's pointer to it. The dashboard's "live"
+-- view follows monitor.latest_reading.
+--
+-- voltage_to_soc and time_remaining_estimate are black-box functions;
+-- their behaviour is documented at the foot of this file.
+rule StoreReading {
+    when: DiagnosticsFetched(installation_id)
+    let diagnostics = fetch_vrm_diagnostics(installation_id)
+    ensures:
+        let reading = EnergyReading.created(
+            timestamp: now,
+            battery_voltage: diagnostics.battery_voltage,
+            battery_current: diagnostics.battery_current,
+            battery_power: diagnostics.battery_power,
+            battery_temperature: diagnostics.battery_temperature,
+            battery_state: diagnostics.battery_state,
+            reported_soc: diagnostics.reported_soc,
+            solar_power: diagnostics.solar_power,
+            solar_voltage: diagnostics.solar_voltage,
+            solar_current: diagnostics.solar_current,
+            solar_yield_today: diagnostics.solar_yield_today,
+            consumption_power: diagnostics.consumption_power,
+            temperature: diagnostics.temperature,
+            humidity: diagnostics.humidity
+        )
+        monitor.latest_reading = reading
+}
+
+-- Rolling retention: each reading exits the system once it is older
+-- than the retention window. There is no soft-delete; old readings
+-- cease to exist.
+rule PruneOldReading {
+    when: reading: EnergyReading.timestamp + config.reading_retention <= now
+    ensures: not exists reading
+}
+
+-- Black-box function reference (informational, outside any construct):
+--
+-- voltage_to_soc(voltage) follows a 12V lead-acid / AGM resting-voltage
+-- lookup with linear interpolation between the anchor points. The
+-- estimate is most accurate when the battery is at rest (no load or
+-- charge); under load or charge the reported voltage drifts and the
+-- estimate is correspondingly approximate. Anchor points used by the
+-- frontend implementation:
+--
+--     12.70V  100%
+--     12.50V   90%
+--     12.42V   80%
+--     12.32V   70%
+--     12.20V   60%
+--     12.06V   50%
+--     11.90V   40%
+--     11.75V   30%
+--     11.58V   20%
+--     11.31V   10%
+--     10.50V    0%
+--
+-- See the open question on backend vs frontend SOC tables.
+--
+-- time_remaining_estimate(soc, consumption, solar, capacity_ah,
+--                         voltage_nominal, min_soc) computes:
+--
+--     net_power = consumption - solar
+--     capacity_wh = capacity_ah * voltage_nominal
+--
+--   * net > 0  -> discharging; hours_to_empty = (capacity_wh * soc%)
+--                / net_power; hours_to_min uses (soc - min_soc).
+--   * net < 0  -> charging; hours_to_full = (capacity_wh *
+--                (100 - soc)%) / |net_power|.
+--   * net = 0  -> idle; all net-based hours fields are null.
+--
+-- Independently of net, when consumption > 0 the load-based runtime is
+-- always computed from consumption alone (solar ignored):
+--   load_hours_to_empty = (capacity_wh * soc%) / consumption
+--   load_hours_to_min   = (capacity_wh * (soc - min_soc)%) / consumption
+--                         (0 once soc <= min_soc).
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+-- A reading's timestamp records when its diagnostics were captured; it
+-- never lies in the future relative to evaluation time.
+invariant ReadingTimestampNotFuture {
+    for r in EnergyReadings:
+        r.timestamp <= now
+}
+
+-- Readings older than the retention window are pruned: the system
+-- never serves data outside the retention promise.
+invariant RetentionRespected {
+    for r in EnergyReadings:
+        r.age <= config.reading_retention
+}
+
+-- The Monitor singleton's pointer to "the most recent reading", when
+-- set, must be a reading that currently exists in the system.
+invariant LatestReadingExists {
+    monitor.latest_reading != null implies exists monitor.latest_reading
+}
+
+-- The minimum-SOC threshold is a percentage and must be valid.
+invariant BatteryMinSocInRange {
+    config.battery_min_soc >= 0 and config.battery_min_soc <= 100
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+-- Anyone able to reach the dashboard. The system today exposes no
+-- authentication or per-user identity, so the actor is a minimal
+-- placeholder for the unauthenticated caller.
+actor Viewer {
+    identified_by: DashboardClient
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface DashboardView {
+    facing viewer: Viewer
+
+    let live = monitor.latest_reading
+    let recent = EnergyReadings
+        where timestamp >= now - config.history_window
+
+    exposes:
+        -- The "live" view: the most recent reading and its derived
+        -- values. Fields are null when no reading has been stored yet.
+        live?.timestamp
+        live?.is_stale
+        live?.battery_voltage
+        live?.battery_current
+        live?.battery_power
+        live?.battery_state
+        live?.effective_soc
+        live?.time_remaining
+        live?.solar_power
+        live?.solar_voltage
+        live?.solar_current
+        live?.solar_yield_today
+        live?.temperature
+        live?.humidity
+
+        -- Historical readings for the time-travel slider. The viewer
+        -- scrubs through this collection to inspect any point inside
+        -- the retained window. time_remaining is not exposed for
+        -- historical points (it is meaningful only against a live net
+        -- power flow).
+        for r in recent:
+            r.timestamp
+            r.battery_voltage
+            r.battery_current
+            r.battery_power
+            r.battery_state
+            r.effective_soc
+            r.solar_power
+            r.solar_voltage
+            r.solar_current
+            r.solar_yield_today
+            r.temperature
+            r.humidity
+
+        -- Daylight and (optional) weather context for the configured
+        -- location.
+        current_sun_info(config.location)
+        current_weather(config.location)
+
+    provides:
+        -- Out-of-cadence refresh: bypasses the poll interval and
+        -- immediately fetches a fresh reading from VRM.
+        RequestRefresh(viewer)
+
+    @guarantee AutoRefresh
+        -- The dashboard's exposed values reflect the latest reading
+        -- without the viewer taking action, updated at intervals no
+        -- longer than config.dashboard_refresh.
+
+    @guarantee StalenessVisible
+        -- When the latest reading's age exceeds config.stale_threshold,
+        -- the viewer can distinguish stale data from fresh data
+        -- (via the is_stale flag exposed alongside the timestamp).
+
+    @guarantee HistoricalImmutability
+        -- A reading exposed in `recent` does not change its measured
+        -- values after creation. Only its presence (within retention)
+        -- and its derived `age` / `is_stale` can change over time.
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "SOC table divergence: backend voltage_to_soc uses 2-point linear interpolation between 11.90V (0%) and 12.70V (100%); frontend utils.js uses an 11-point piecewise-linear table over the same range. Mid-range values disagree (12.30V -> 50% backend vs 70% frontend). Which is canonical?"
+
+open question "Battery state from VRM arrives sometimes as text labels (charging / discharging / idle) and sometimes as numeric strings (1 / 2 / 0). Is the numeric form a legacy artefact or expected to remain supported?"
+
+open question "Battery characteristics (battery_capacity_ah, battery_min_soc, ...) are configured per deployment via environment variables. Should they be per-installation entity fields instead, so a future multi-installation deployment can present each one with its own time-remaining?"
+
+open question "Manual refresh resets the periodic poll clock by setting last_polled_at = now. Is that the intended behaviour, or should a manual refresh be additive (fresh fetch without pushing out the next scheduled poll)?"
