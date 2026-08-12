@@ -161,17 +161,41 @@ function BatteryCard({ data, timeRemaining }) {
               </div>
             </div>
           ) : timeRemaining.is_charging ? (
-            <div className="flex justify-between items-center">
-              <div className="text-center flex-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Charging at</p>
-                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{Math.abs(timeRemaining.net_power)}W</p>
+            <>
+              <div className="flex justify-between items-center">
+                <div className="text-center flex-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Charging at</p>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{Math.abs(timeRemaining.net_power)}W</p>
+                </div>
+                <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
+                <div className="text-center flex-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">To Full</p>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatHours(timeRemaining.hours_to_full)}</p>
+                </div>
               </div>
-              <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
-              <div className="text-center flex-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">To Full</p>
-                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatHours(timeRemaining.hours_to_full)}</p>
+              {timeRemaining.load_hours_to_empty !== null && timeRemaining.load_hours_to_empty !== undefined && (
+                <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2 pt-2 border-t border-gray-200/70 dark:border-gray-600/50">
+                  On battery at current load: {formatHours(timeRemaining.load_hours_to_min)} to 50% · {formatHours(timeRemaining.load_hours_to_empty)} to empty
+                </p>
+              )}
+            </>
+          ) : timeRemaining.load_hours_to_empty !== null && timeRemaining.load_hours_to_empty !== undefined ? (
+            <>
+              <div className="flex justify-between items-center">
+                <div className="text-center flex-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">To 50%</p>
+                  <p className="text-lg font-bold text-gray-600 dark:text-gray-300">{formatHours(timeRemaining.load_hours_to_min)}</p>
+                </div>
+                <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
+                <div className="text-center flex-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">To Empty</p>
+                  <p className="text-lg font-bold text-gray-600 dark:text-gray-300">{formatHours(timeRemaining.load_hours_to_empty)}</p>
+                </div>
               </div>
-            </div>
+              <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-2">
+                {soc >= 100 ? 'Fully charged · runtime at current load' : 'Idle · runtime at current load'}
+              </p>
+            </>
           ) : (
             <div className="text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400">
