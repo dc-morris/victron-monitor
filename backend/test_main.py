@@ -285,6 +285,49 @@ class TestTimeRemaining:
         )
         assert result["hours_to_min"] == 10.8
 
+    def test_load_runtime_available_while_charging(self):
+        # Charging (solar exceeds consumption), but the load-based runtime
+        # is still reported so a runtime estimate is always shown.
+        # 1800Wh * 0.50 / 50W = 18.0h to empty; (0.50-0.50) -> 0 to min
+        result = calculate_time_remaining(
+            soc=50.0,
+            consumption_power=50.0,
+            solar_power=150.0
+        )
+        assert result["is_charging"] is True
+        assert result["load_hours_to_empty"] == 18.0
+        assert result["load_hours_to_min"] == 0
+
+    def test_load_runtime_ignores_solar(self):
+        # 80% SOC, 100W load. 1800Wh*0.80/100 = 14.4h to empty,
+        # 1800Wh*(0.80-0.50)/100 = 5.4h to 50% — independent of solar.
+        for solar in (0.0, 60.0, 500.0):
+            result = calculate_time_remaining(
+                soc=80.0,
+                consumption_power=100.0,
+                solar_power=solar
+            )
+            assert result["load_hours_to_empty"] == 14.4
+            assert result["load_hours_to_min"] == 5.4
+
+    def test_load_runtime_none_without_consumption(self):
+        result = calculate_time_remaining(
+            soc=80.0,
+            consumption_power=0.0,
+            solar_power=100.0
+        )
+        assert result["load_hours_to_empty"] is None
+        assert result["load_hours_to_min"] is None
+
+    def test_load_runtime_none_without_soc(self):
+        result = calculate_time_remaining(
+            soc=None,
+            consumption_power=100.0,
+            solar_power=0.0
+        )
+        assert result["load_hours_to_empty"] is None
+        assert result["load_hours_to_min"] is None
+
 
 class TestCleanupOldReadings:
     def test_deletes_old_readings(self):
