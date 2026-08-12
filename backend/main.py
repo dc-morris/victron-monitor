@@ -50,6 +50,10 @@ def calculate_time_remaining(
     - hours_to_empty: time until 0% SOC (when discharging)
     - hours_to_min: time until minimum safe SOC (when discharging)
     - hours_to_full: time until 100% SOC (when charging)
+    - load_hours_to_empty: runtime to 0% SOC at the current load alone,
+      ignoring solar (always available, even while charging/idle)
+    - load_hours_to_min: runtime to minimum safe SOC at the current load
+      alone, ignoring solar
     - net_power: net power flow (positive = discharging, negative = charging)
     - is_discharging: True if net consumption > 0
     - is_charging: True if net consumption < 0
@@ -58,6 +62,8 @@ def calculate_time_remaining(
         "hours_to_empty": None,
         "hours_to_min": None,
         "hours_to_full": None,
+        "load_hours_to_empty": None,
+        "load_hours_to_min": None,
         "net_power": None,
         "is_discharging": False,
         "is_charging": False,
@@ -75,6 +81,18 @@ def calculate_time_remaining(
 
     # Battery capacity in Wh
     capacity_wh = BATTERY_CAPACITY_AH * BATTERY_VOLTAGE_NOMINAL
+
+    # Runtime at the current load alone, ignoring solar. This answers
+    # "how long would the battery last if it had to power the current
+    # consumption on its own", and is meaningful regardless of whether
+    # the battery is currently charging, discharging or idle.
+    if consumption > 0:
+        result["load_hours_to_empty"] = round(capacity_wh * (soc / 100) / consumption, 1)
+        if soc > BATTERY_MIN_SOC:
+            energy_to_min = capacity_wh * ((soc - BATTERY_MIN_SOC) / 100)
+            result["load_hours_to_min"] = round(energy_to_min / consumption, 1)
+        else:
+            result["load_hours_to_min"] = 0
 
     if net > 0:
         # Discharging
