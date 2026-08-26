@@ -2,5 +2,5 @@ fastapi==0.141.1
 uvicorn==0.52.4
 httpx==0.28.1
 sqlalchemy==2.0.52
-python-dotenv==1.2.1
+python-dotenv==1.2.3
 astral==3.2
